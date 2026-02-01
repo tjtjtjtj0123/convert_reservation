@@ -1,0 +1,23 @@
+flowchart TB
+    Start((Start)) --> Token["Token Validation"]
+    
+    subgraph Reserve["Seat Reservation"]
+        Token --> CheckSeat{"Check Seat"}
+        CheckSeat -->|Available| TempHold["TEMP_HELD"]
+        CheckSeat -->|Unavailable| Error1["Error: Not Available"]
+        TempHold --> CreateRes["Create Reservation - 5min limit"]
+    end
+    
+    CreateRes --> Wait["Wait - max 5min"]
+    
+    subgraph PaymentFlow["Payment Process"]
+        Wait --> CheckExpiry{"Check Expiry"}
+        CheckExpiry -->|Valid| UsePoint["Use Point"]
+        CheckExpiry -->|Expired| Error2["Error: Timeout"]
+        UsePoint --> Confirm["CONFIRMED"]
+        Confirm --> ExpireToken["Expire Token"]
+    end
+    
+    ExpireToken --> Finish((End))
+    Error1 --> Finish
+    Error2 --> Finish

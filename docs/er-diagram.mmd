@@ -1,0 +1,61 @@
+erDiagram
+    CONCERT_SCHEDULE ||--o{ SEAT : has
+    SEAT ||--o| RESERVATION : reserved_as
+    RESERVATION ||--|| PAYMENT : paid_by
+    POINT_BALANCE ||--o{ PAYMENT : used_in
+    QUEUE_TOKEN ||--o| RESERVATION : authorizes
+
+    CONCERT_SCHEDULE {
+        bigint id PK
+        date concert_date UK
+        int total_seats
+        int available_seats
+    }
+
+    SEAT {
+        bigint id PK
+        varchar concert_date
+        int seat_number
+        varchar status
+        varchar reserved_user_id
+        datetime reserved_until
+        bigint version
+    }
+
+    RESERVATION {
+        bigint id PK
+        varchar user_id
+        bigint seat_id FK
+        varchar concert_date
+        int seat_number
+        bigint price
+        varchar status
+        datetime reserved_at
+        datetime reserved_until
+        datetime confirmed_at
+    }
+
+    PAYMENT {
+        bigint id PK
+        bigint reservation_id FK
+        varchar user_id
+        bigint amount
+        varchar status
+        datetime paid_at
+    }
+
+    POINT_BALANCE {
+        varchar user_id PK
+        bigint balance
+        bigint version
+    }
+
+    QUEUE_TOKEN {
+        bigint id PK
+        varchar user_id
+        varchar token UK
+        varchar status
+        int position
+        datetime expires_at
+        datetime created_at
+    }

@@ -29,7 +29,6 @@ erDiagram
         bigint total_in_cash "총 충전 캐시 금액"
         bigint total_used_cash "총 사용 캐시 금액"
         bigint total_cash "총 캐시 잔액"
-        int version "낙관적 락 버전"
         datetime created_at "캐시 계정 생성일시"
         datetime updated_at "캐시 계정 수정일시"
     }

@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph Scheduler["ExpirationScheduler"]
+        S1["releaseExpiredReservations - 1min"]
+        S2["activateWaitingTokens - 30sec"]
+        S3["cleanupExpiredTokens - 5min"]
+    end
+    
+    subgraph BulkOps["Bulk Operations"]
+        B1["bulkExpire"]
+        B2["bulkRelease"]
+        B3["bulkActivate"]
+    end
+    
+    subgraph DB["MySQL"]
+        D1["UPDATE WHERE id IN ..."]
+    end
+    
+    S1 --> B1
+    S1 --> B2
+    S2 --> B3
+    S3 --> B1
+    
+    B1 --> D1
+    B2 --> D1
+    B3 --> D1
+    
+    D1 --> Result["N+1 Problem Solved"]
