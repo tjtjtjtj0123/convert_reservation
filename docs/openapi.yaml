@@ -1,0 +1,278 @@
+openapi: 3.0.3
+info:
+  title: Concert Booking Service
+  version: 1.0.0
+  description: 공연 예매 서비스 API 명세
+
+security:
+  - QueueToken: []
+
+components:
+  securitySchemes:
+    QueueToken:
+      type: apiKey
+      in: header
+      name: X-QUEUE-TOKEN
+  schemas:
+    QueueTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        position:
+          type: integer
+        expires_in:
+          type: integer
+          description: 토큰 만료까지 남은 시간 (초)
+    AvailableDatesResponse:
+      type: object
+      properties:
+        dates:
+          type: array
+          items:
+            type: string
+            format: date
+    SeatListResponse:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        seats:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeatStatus'
+    SeatStatus:
+      type: object
+      properties:
+        seatNumber:
+          type: integer
+        status:
+          type: string
+          enum: [AVAILABLE, RESERVED, TEMP_HELD]
+        reservedBy:
+          type: string
+          nullable: true
+          description: 예매자 UUID (예매된 경우만)
+        tempHoldExpires:
+          type: string
+          format: date-time
+          nullable: true
+          description: 임시 홀드 만료 시각 (임시예약인 경우)
+    PointChargeRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        amount:
+          type: integer
+    PointChargeResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        totalPoints:
+          type: integer
+    PointBalanceResponse:
+      type: object
+      properties:
+        userId:
+          type: string
+        balance:
+          type: integer
+    SeatReserveRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        date:
+          type: string
+          format: date
+        seatNumber:
+          type: integer
+    SeatReserveResponse:
+      type: object
+      properties:
+        seatNumber:
+          type: integer
+        tempHoldExpires:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [TEMP_HELD, RESERVED]
+    PaymentRequest:
+      type: object
+      properties:
+        userId:
+          type: string
+        seatNumber:
+          type: integer
+        date:
+          type: string
+          format: date
+    PaymentResponse:
+      type: object
+      properties:
+        paymentId:
+          type: string
+        userId:
+          type: string
+        seatNumber:
+          type: integer
+        amount:
+          type: integer
+        remainingPoints:
+          type: integer
+        status:
+          type: string
+          enum: [SUCCESS, FAILED]
+
+paths:
+  /queue/token:
+    post:
+      summary: 대기열 토큰 발급
+      description: 사용자를 대기열에 등록하고 토큰을 발급합니다
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: string
+      responses:
+        '200':
+          description: 토큰 발급 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueTokenResponse'
+  
+  /queue/status:
+    get:
+      summary: 대기열 상태 조회
+      description: 현재 대기열 상태 및 순서 확인
+      responses:
+        '200':
+          description: 대기열 상태 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueTokenResponse'
+        '401':
+          description: 유효하지 않은 토큰
+
+  /concerts/available-dates:
+    get:
+      summary: 예약 가능한 날짜 조회
+      description: 예약 가능한 공연 날짜 목록을 조회합니다
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailableDatesResponse'
+
+  /concerts/seats:
+    get:
+      summary: 좌석 목록 조회
+      description: 특정 날짜의 좌석 목록 및 예약 상태를 조회합니다
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeatListResponse'
+
+  /reservations:
+    post:
+      summary: 좌석 임시 예약
+      description: 좌석을 5분간 임시 예약합니다
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SeatReserveRequest'
+      responses:
+        '200':
+          description: 임시 예약 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeatReserveResponse'
+        '400':
+          description: 이미 예약된 좌석
+        '401':
+          description: 유효하지 않은 토큰
+
+  /payment:
+    post:
+      summary: 결제
+      description: 임시 예약된 좌석에 대해 결제를 진행합니다
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentRequest'
+      responses:
+        '200':
+          description: 결제 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '400':
+          description: 잔액 부족 또는 임시 예약 만료
+        '401':
+          description: 유효하지 않은 토큰
+
+  /points/charge:
+    post:
+      summary: 포인트 충전
+      description: 사용자 포인트를 충전합니다
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PointChargeRequest'
+      responses:
+        '200':
+          description: 충전 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointChargeResponse'
+
+  /points/balance:
+    get:
+      summary: 포인트 잔액 조회
+      description: 사용자의 현재 포인트 잔액을 조회합니다
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 조회 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PointBalanceResponse'
