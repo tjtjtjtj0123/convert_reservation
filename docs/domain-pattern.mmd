@@ -1,0 +1,21 @@
+flowchart LR
+    subgraph CleanArch["Clean Architecture"]
+        R1["Reservation Domain"]
+        R2["Payment Domain"]
+        R1 --- UseCase1["UseCase Interface"]
+        R2 --- UseCase2["UseCase Interface"]
+        UseCase1 --- Impl1["UseCaseImpl"]
+        UseCase2 --- Impl2["UseCaseImpl"]
+    end
+    
+    subgraph LayeredArch["Layered Architecture"]
+        L1["Concert Domain"]
+        L2["Point Domain"]
+        L3["Queue Domain"]
+        L1 --- Svc1["Service"]
+        L2 --- Svc2["Service"]
+        L3 --- Svc3["Service"]
+    end
+    
+    CleanArch -.-> Note1["Complex Business Logic"]
+    LayeredArch -.-> Note2["Simple CRUD"]

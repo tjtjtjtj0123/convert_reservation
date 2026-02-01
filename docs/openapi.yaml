@@ -2,7 +2,32 @@ openapi: 3.0.3
 info:
   title: Concert Booking Service
   version: 1.0.0
-  description: 공연 예매 서비스 API 명세
+  description: |
+    공연 예매 서비스 API 명세
+    
+    ## 인증/인가 플로우
+    
+    ### 1. 대기열 토큰 발급
+    - 사용자는 먼저 `/queue/token` 엔드포인트를 통해 대기열 토큰을 발급받아야 합니다.
+    - 토큰은 사용자의 대기열 순서와 만료 시간 정보를 포함합니다.
+    
+    ### 2. 토큰 기반 인증
+    - 대부분의 API는 `X-QUEUE-TOKEN` 헤더에 유효한 토큰을 요구합니다.
+    - 토큰이 없거나 유효하지 않은 경우 401 Unauthorized 응답을 받습니다.
+    - 예외: `/queue/token`, `/points/charge` 엔드포인트는 토큰 불필요
+    
+    ### 3. 대기열 상태 확인
+    - 토큰 발급 후 `/queue/status`를 통해 현재 대기 순서를 확인할 수 있습니다.
+    - 대기 순서가 되면 서비스 이용이 가능합니다.
+    
+    ### 4. 권한 실패 시나리오
+    - **401 Unauthorized**: 토큰이 없거나, 만료되었거나, 유효하지 않은 경우
+    - **403 Forbidden**: 토큰은 유효하지만 대기 순서가 아직 되지 않은 경우
+    - **404 Not Found**: 요청한 리소스에 접근 권한이 없는 경우 (다른 사용자의 예약 등)
+    
+    ### 5. 토큰 만료 및 갱신
+    - 토큰은 발급 후 일정 시간 후 만료됩니다.
+    - 만료된 토큰으로 요청 시 새로운 토큰을 발급받아야 합니다.
 
 security:
   - QueueToken: []
@@ -13,7 +38,55 @@ components:
       type: apiKey
       in: header
       name: X-QUEUE-TOKEN
+      description: |
+        대기열 토큰 기반 인증
+        
+        **획득 방법**: POST /queue/token 엔드포인트를 통해 발급
+        
+        **사용 방법**: HTTP 요청 헤더에 `X-QUEUE-TOKEN: {token}` 형식으로 포함
+        
+        **유효성 검증**:
+        - 토큰 형식이 올바른지 확인
+        - 토큰이 만료되지 않았는지 확인
+        - 사용자의 대기 순서가 되었는지 확인
+        
+        **만료 처리**: 토큰 만료 시 401 응답과 함께 재발급 필요 메시지 반환
   schemas:
+    ProblemDetail:
+      type: object
+      description: RFC 7807 Problem Details for HTTP APIs
+      properties:
+        type:
+          type: string
+          format: uri
+          description: URI 참조로 문제 유형을 식별
+          example: "https://api.concert.com/problems/insufficient-balance"
+        title:
+          type: string
+          description: 문제 유형에 대한 간단한 요약
+          example: "잔액 부족"
+        status:
+          type: integer
+          description: HTTP 상태 코드
+          example: 400
+        detail:
+          type: string
+          description: 문제에 대한 상세 설명
+          example: "결제에 필요한 포인트가 부족합니다. 현재 잔액: 1000, 필요 금액: 5000"
+        instance:
+          type: string
+          format: uri
+          description: 문제가 발생한 특정 인스턴스에 대한 URI 참조
+          example: "/payment/12345"
+        timestamp:
+          type: string
+          format: date-time
+          description: 오류 발생 시각
+          example: "2025-12-03T10:30:00Z"
+      required:
+        - type
+        - title
+        - status
     QueueTokenResponse:
       type: object
       properties:
@@ -150,6 +223,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/QueueTokenResponse'
+        '400':
+          description: 잘못된 요청
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/invalid-request"
+                title: "잘못된 요청"
+                status: 400
+                detail: "userId는 필수 항목입니다."
+                instance: "/queue/token"
+                timestamp: "2025-12-03T10:30:00Z"
+        '500':
+          description: 서버 오류
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
   
   /queue/status:
     get:
@@ -164,6 +256,23 @@ paths:
                 $ref: '#/components/schemas/QueueTokenResponse'
         '401':
           description: 유효하지 않은 토큰
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/invalid-token"
+                title: "유효하지 않은 토큰"
+                status: 401
+                detail: "제공된 대기열 토큰이 유효하지 않거나 만료되었습니다."
+                instance: "/queue/status"
+                timestamp: "2025-12-03T10:30:00Z"
+        '500':
+          description: 서버 오류
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /concerts/available-dates:
     get:
@@ -176,6 +285,38 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AvailableDatesResponse'
+        '401':
+          description: 유효하지 않은 토큰
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/invalid-token"
+                title: "유효하지 않은 토큰"
+                status: 401
+                detail: "제공된 대기열 토큰이 유효하지 않거나 만료되었습니다. 새로운 토큰을 발급받아 주세요."
+                instance: "/concerts/available-dates"
+                timestamp: "2025-12-03T10:30:00Z"
+        '403':
+          description: 대기 순서 미도달
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/queue-waiting"
+                title: "대기 중"
+                status: 403
+                detail: "아직 대기 순서가 되지 않았습니다. 현재 대기 순서: 42"
+                instance: "/concerts/available-dates"
+                timestamp: "2025-12-03T10:30:00Z"
+        '500':
+          description: 서버 오류
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /concerts/seats:
     get:
@@ -195,6 +336,51 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SeatListResponse'
+        '400':
+          description: 잘못된 날짜 형식
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/invalid-date"
+                title: "잘못된 날짜 형식"
+                status: 400
+                detail: "날짜는 YYYY-MM-DD 형식이어야 합니다."
+                instance: "/concerts/seats"
+                timestamp: "2025-12-03T10:30:00Z"
+        '401':
+          description: 유효하지 않은 토큰
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/invalid-token"
+                title: "유효하지 않은 토큰"
+                status: 401
+                detail: "제공된 대기열 토큰이 유효하지 않거나 만료되었습니다. 새로운 토큰을 발급받아 주세요."
+                instance: "/concerts/seats"
+                timestamp: "2025-12-03T10:30:00Z"
+        '403':
+          description: 대기 순서 미도달
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/queue-waiting"
+                title: "대기 중"
+                status: 403
+                detail: "아직 대기 순서가 되지 않았습니다. 현재 대기 순서: 42"
+                instance: "/concerts/seats"
+                timestamp: "2025-12-03T10:30:00Z"
+        '500':
+          description: 서버 오류
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /reservations:
     post:
@@ -215,8 +401,72 @@ paths:
                 $ref: '#/components/schemas/SeatReserveResponse'
         '400':
           description: 이미 예약된 좌석
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/seat-already-reserved"
+                title: "좌석 예약 불가"
+                status: 400
+                detail: "요청하신 좌석은 이미 예약되었거나 임시 예약 중입니다."
+                instance: "/reservations"
+                timestamp: "2025-12-03T10:30:00Z"
         '401':
           description: 유효하지 않은 토큰
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/invalid-token"
+                title: "유효하지 않은 토큰"
+                status: 401
+                detail: "제공된 대기열 토큰이 유효하지 않거나 만료되었습니다. 새로운 토큰을 발급받아 주세요."
+                instance: "/reservations"
+                timestamp: "2025-12-03T10:30:00Z"
+        '403':
+          description: 대기 순서 미도달 또는 권한 없음
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                queue-waiting:
+                  value:
+                    type: "https://api.concert.com/problems/queue-waiting"
+                    title: "대기 중"
+                    status: 403
+                    detail: "아직 대기 순서가 되지 않았습니다. 현재 대기 순서: 42"
+                    instance: "/reservations"
+                    timestamp: "2025-12-03T10:30:00Z"
+                user-mismatch:
+                  value:
+                    type: "https://api.concert.com/problems/user-mismatch"
+                    title: "권한 없음"
+                    status: 403
+                    detail: "요청한 사용자 ID와 토큰의 사용자 ID가 일치하지 않습니다."
+                    instance: "/reservations"
+                    timestamp: "2025-12-03T10:30:00Z"
+        '404':
+          description: 좌석을 찾을 수 없음
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/seat-not-found"
+                title: "좌석을 찾을 수 없음"
+                status: 404
+                detail: "요청하신 좌석 번호가 존재하지 않습니다."
+                instance: "/reservations"
+                timestamp: "2025-12-03T10:30:00Z"
+        '500':
+          description: 서버 오류
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /payment:
     post:
@@ -237,8 +487,82 @@ paths:
                 $ref: '#/components/schemas/PaymentResponse'
         '400':
           description: 잔액 부족 또는 임시 예약 만료
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                insufficient-balance:
+                  value:
+                    type: "https://api.concert.com/problems/insufficient-balance"
+                    title: "잔액 부족"
+                    status: 400
+                    detail: "결제에 필요한 포인트가 부족합니다. 현재 잔액: 1000, 필요 금액: 5000"
+                    instance: "/payment"
+                    timestamp: "2025-12-03T10:30:00Z"
+                reservation-expired:
+                  value:
+                    type: "https://api.concert.com/problems/reservation-expired"
+                    title: "임시 예약 만료"
+                    status: 400
+                    detail: "임시 예약이 만료되었습니다. 좌석을 다시 예약해 주세요."
+                    instance: "/payment"
+                    timestamp: "2025-12-03T10:30:00Z"
         '401':
           description: 유효하지 않은 토큰
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/invalid-token"
+                title: "유효하지 않은 토큰"
+                status: 401
+                detail: "제공된 대기열 토큰이 유효하지 않거나 만료되었습니다. 새로운 토큰을 발급받아 주세요."
+                instance: "/payment"
+                timestamp: "2025-12-03T10:30:00Z"
+        '403':
+          description: 대기 순서 미도달 또는 권한 없음
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              examples:
+                queue-waiting:
+                  value:
+                    type: "https://api.concert.com/problems/queue-waiting"
+                    title: "대기 중"
+                    status: 403
+                    detail: "아직 대기 순서가 되지 않았습니다. 현재 대기 순서: 42"
+                    instance: "/payment"
+                    timestamp: "2025-12-03T10:30:00Z"
+                unauthorized-payment:
+                  value:
+                    type: "https://api.concert.com/problems/unauthorized-payment"
+                    title: "결제 권한 없음"
+                    status: 403
+                    detail: "다른 사용자가 예약한 좌석에 대해 결제할 수 없습니다."
+                    instance: "/payment"
+                    timestamp: "2025-12-03T10:30:00Z"
+        '404':
+          description: 예약을 찾을 수 없음
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/reservation-not-found"
+                title: "예약을 찾을 수 없음"
+                status: 404
+                detail: "해당 좌석에 대한 임시 예약을 찾을 수 없습니다."
+                instance: "/payment"
+                timestamp: "2025-12-03T10:30:00Z"
+        '500':
+          description: 서버 오류
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /points/charge:
     post:
@@ -258,11 +582,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PointChargeResponse'
+        '400':
+          description: 잘못된 요청
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/invalid-amount"
+                title: "잘못된 충전 금액"
+                status: 400
+                detail: "충전 금액은 0보다 커야 합니다."
+                instance: "/points/charge"
+                timestamp: "2025-12-03T10:30:00Z"
+        '404':
+          description: 사용자를 찾을 수 없음
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/user-not-found"
+                title: "사용자를 찾을 수 없음"
+                status: 404
+                detail: "요청하신 사용자 ID를 찾을 수 없습니다."
+                instance: "/points/charge"
+                timestamp: "2025-12-03T10:30:00Z"
+        '500':
+          description: 서버 오류
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
 
   /points/balance:
     get:
       summary: 포인트 잔액 조회
       description: 사용자의 현재 포인트 잔액을 조회합니다
+      security: []
       parameters:
         - name: userId
           in: query
@@ -276,3 +633,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PointBalanceResponse'
+        '403':
+          description: 권한 없음
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/unauthorized-access"
+                title: "권한 없음"
+                status: 403
+                detail: "다른 사용자의 포인트 정보를 조회할 수 없습니다."
+                instance: "/points/balance"
+                timestamp: "2025-12-03T10:30:00Z"
+        '404':
+          description: 사용자를 찾을 수 없음
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
+              example:
+                type: "https://api.concert.com/problems/user-not-found"
+                title: "사용자를 찾을 수 없음"
+                status: 404
+                detail: "요청하신 사용자 ID를 찾을 수 없습니다."
+                instance: "/points/balance"
+                timestamp: "2025-12-03T10:30:00Z"
+        '500':
+          description: 서버 오류
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetail'
