@@ -1,20 +1,20 @@
 package kr.hhplus.be.server.application.payment;
 
-import kr.hhplus.be.server.application.payment.usecase.ProcessPaymentUseCaseImpl;
-import kr.hhplus.be.server.application.point.PointService;
-import kr.hhplus.be.server.application.queue.QueueService;
-import kr.hhplus.be.server.common.exception.BusinessException;
-import kr.hhplus.be.server.domain.concert.Seat;
-import kr.hhplus.be.server.domain.concert.SeatRepository;
-import kr.hhplus.be.server.domain.concert.SeatStatus;
-import kr.hhplus.be.server.domain.payment.Payment;
-import kr.hhplus.be.server.domain.payment.PaymentRepository;
-import kr.hhplus.be.server.domain.reservation.Reservation;
-import kr.hhplus.be.server.domain.reservation.ReservationRepository;
-import kr.hhplus.be.server.domain.reservation.ReservationStatus;
-import kr.hhplus.be.server.interfaces.api.payment.dto.PaymentRequest;
-import kr.hhplus.be.server.interfaces.api.payment.dto.PaymentResponse;
-import kr.hhplus.be.server.interfaces.api.point.dto.PointBalanceResponse;
+import kr.hhplus.be.server.payment.application.service.PaymentService;
+import kr.hhplus.be.server.point.application.service.PointService;
+import kr.hhplus.be.server.queue.application.service.QueueService;
+import kr.hhplus.be.server.shared.common.exception.BusinessException;
+import kr.hhplus.be.server.concert.domain.model.Seat;
+import kr.hhplus.be.server.concert.domain.repository.SeatRepository;
+import kr.hhplus.be.server.concert.domain.model.SeatStatus;
+import kr.hhplus.be.server.payment.domain.model.Payment;
+import kr.hhplus.be.server.payment.domain.repository.PaymentRepository;
+import kr.hhplus.be.server.reservation.domain.model.Reservation;
+import kr.hhplus.be.server.reservation.domain.repository.ReservationRepository;
+import kr.hhplus.be.server.reservation.domain.model.ReservationStatus;
+import kr.hhplus.be.server.payment.interfaces.api.dto.PaymentRequest;
+import kr.hhplus.be.server.payment.interfaces.api.dto.PaymentResponse;
+import kr.hhplus.be.server.point.interfaces.api.dto.PointBalanceResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -53,7 +53,7 @@ class ProcessPaymentUseCaseTest {
     private QueueService queueService;
 
     @InjectMocks
-    private ProcessPaymentUseCaseImpl processPaymentUseCase;
+    private PaymentService processPaymentUseCase;
 
     private PaymentRequest request;
     private Reservation reservation;
@@ -106,7 +106,7 @@ class ProcessPaymentUseCaseTest {
         when(pointService.getBalance("user123")).thenReturn(new PointBalanceResponse("user123", 350000));
 
         // When
-        PaymentResponse response = processPaymentUseCase.execute(request, queueToken);
+        PaymentResponse response = processPaymentUseCase.processPayment(request, queueToken);
 
         // Then
         assertThat(response).isNotNull();
@@ -140,7 +140,7 @@ class ProcessPaymentUseCaseTest {
         )).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> processPaymentUseCase.execute(request, queueToken))
+        assertThatThrownBy(() -> processPaymentUseCase.processPayment(request, queueToken))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("임시 예약을 찾을 수 없습니다");
 
@@ -163,7 +163,7 @@ class ProcessPaymentUseCaseTest {
         )).thenReturn(Optional.of(reservation));
 
         // When & Then
-        assertThatThrownBy(() -> processPaymentUseCase.execute(request, queueToken))
+        assertThatThrownBy(() -> processPaymentUseCase.processPayment(request, queueToken))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("예약 시간이 만료되었습니다");
 
@@ -179,7 +179,7 @@ class ProcessPaymentUseCaseTest {
                 .when(queueService).validateToken(queueToken);
 
         // When & Then
-        assertThatThrownBy(() -> processPaymentUseCase.execute(request, queueToken))
+        assertThatThrownBy(() -> processPaymentUseCase.processPayment(request, queueToken))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("유효하지 않은 토큰");
 
@@ -203,7 +203,7 @@ class ProcessPaymentUseCaseTest {
                 .when(pointService).usePoint("user123", 150000L);
 
         // When & Then
-        assertThatThrownBy(() -> processPaymentUseCase.execute(request, queueToken))
+        assertThatThrownBy(() -> processPaymentUseCase.processPayment(request, queueToken))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("포인트가 부족합니다");
 
@@ -226,7 +226,7 @@ class ProcessPaymentUseCaseTest {
         when(seatRepository.findById(reservation.getSeatId())).thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> processPaymentUseCase.execute(request, queueToken))
+        assertThatThrownBy(() -> processPaymentUseCase.processPayment(request, queueToken))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("좌석을 찾을 수 없습니다");
 
