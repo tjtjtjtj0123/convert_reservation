@@ -1,9 +1,9 @@
 package kr.hhplus.be.server.config;
 
-import kr.hhplus.be.server.domain.concert.ConcertSchedule;
-import kr.hhplus.be.server.domain.concert.ConcertScheduleRepository;
-import kr.hhplus.be.server.domain.concert.Seat;
-import kr.hhplus.be.server.domain.concert.SeatRepository;
+import kr.hhplus.be.server.concert.domain.model.ConcertSchedule;
+import kr.hhplus.be.server.concert.domain.repository.ConcertScheduleRepository;
+import kr.hhplus.be.server.concert.domain.model.Seat;
+import kr.hhplus.be.server.concert.domain.repository.SeatRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

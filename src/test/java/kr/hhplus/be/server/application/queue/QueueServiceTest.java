@@ -1,11 +1,12 @@
 package kr.hhplus.be.server.application.queue;
 
-import kr.hhplus.be.server.common.exception.BusinessException;
-import kr.hhplus.be.server.domain.queue.QueueToken;
-import kr.hhplus.be.server.domain.queue.QueueTokenRepository;
-import kr.hhplus.be.server.domain.queue.TokenStatus;
-import kr.hhplus.be.server.interfaces.api.queue.dto.QueueTokenRequest;
-import kr.hhplus.be.server.interfaces.api.queue.dto.QueueTokenResponse;
+import kr.hhplus.be.server.queue.application.service.QueueService;
+import kr.hhplus.be.server.shared.common.exception.BusinessException;
+import kr.hhplus.be.server.queue.domain.model.QueueToken;
+import kr.hhplus.be.server.queue.domain.repository.QueueTokenRepository;
+import kr.hhplus.be.server.queue.domain.model.TokenStatus;
+import kr.hhplus.be.server.queue.interfaces.api.dto.QueueTokenRequest;
+import kr.hhplus.be.server.queue.interfaces.api.dto.QueueTokenResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

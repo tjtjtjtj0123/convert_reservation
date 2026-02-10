@@ -1,15 +1,15 @@
 package kr.hhplus.be.server.application.reservation;
 
-import kr.hhplus.be.server.application.queue.QueueService;
-import kr.hhplus.be.server.application.reservation.usecase.ReserveSeatUseCaseImpl;
-import kr.hhplus.be.server.common.exception.BusinessException;
-import kr.hhplus.be.server.domain.concert.Seat;
-import kr.hhplus.be.server.domain.concert.SeatRepository;
-import kr.hhplus.be.server.domain.concert.SeatStatus;
-import kr.hhplus.be.server.domain.reservation.Reservation;
-import kr.hhplus.be.server.domain.reservation.ReservationRepository;
-import kr.hhplus.be.server.interfaces.api.reservation.dto.SeatReserveRequest;
-import kr.hhplus.be.server.interfaces.api.reservation.dto.SeatReserveResponse;
+import kr.hhplus.be.server.queue.application.service.QueueService;
+import kr.hhplus.be.server.reservation.application.service.ReservationService;
+import kr.hhplus.be.server.shared.common.exception.BusinessException;
+import kr.hhplus.be.server.concert.domain.model.Seat;
+import kr.hhplus.be.server.concert.domain.repository.SeatRepository;
+import kr.hhplus.be.server.concert.domain.model.SeatStatus;
+import kr.hhplus.be.server.reservation.domain.model.Reservation;
+import kr.hhplus.be.server.reservation.domain.repository.ReservationRepository;
+import kr.hhplus.be.server.reservation.interfaces.api.dto.SeatReserveRequest;
+import kr.hhplus.be.server.reservation.interfaces.api.dto.SeatReserveResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,7 +43,7 @@ class ReserveSeatUseCaseTest {
     private QueueService queueService;
 
     @InjectMocks
-    private ReserveSeatUseCaseImpl reserveSeatUseCase;
+    private ReservationService reserveSeatUseCase;
 
     private Seat availableSeat;
     private String queueToken;
@@ -71,7 +71,7 @@ class ReserveSeatUseCaseTest {
         });
 
         // When
-        SeatReserveResponse response = reserveSeatUseCase.execute(request, queueToken);
+        SeatReserveResponse response = reserveSeatUseCase.reserveSeat(request, queueToken);
 
         // Then
         assertThat(response).isNotNull();
@@ -103,7 +103,7 @@ class ReserveSeatUseCaseTest {
                 .thenReturn(Optional.empty());
 
         // When & Then
-        assertThatThrownBy(() -> reserveSeatUseCase.execute(request, queueToken))
+        assertThatThrownBy(() -> reserveSeatUseCase.reserveSeat(request, queueToken))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("좌석을 찾을 수 없습니다");
 
@@ -126,7 +126,7 @@ class ReserveSeatUseCaseTest {
                 .thenReturn(Optional.of(availableSeat));
 
         // When & Then
-        assertThatThrownBy(() -> reserveSeatUseCase.execute(request, queueToken))
+        assertThatThrownBy(() -> reserveSeatUseCase.reserveSeat(request, queueToken))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("예약 가능한 좌석이 아닙니다");
 
@@ -141,7 +141,7 @@ class ReserveSeatUseCaseTest {
                 .when(queueService).validateToken(queueToken);
 
         // When & Then
-        assertThatThrownBy(() -> reserveSeatUseCase.execute(request, queueToken))
+        assertThatThrownBy(() -> reserveSeatUseCase.reserveSeat(request, queueToken))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("유효하지 않은 토큰");
 
@@ -172,7 +172,7 @@ class ReserveSeatUseCaseTest {
         });
 
         // When
-        SeatReserveResponse response = reserveSeatUseCase.execute(request, queueToken);
+        SeatReserveResponse response = reserveSeatUseCase.reserveSeat(request, queueToken);
 
         // Then
         assertThat(response).isNotNull();

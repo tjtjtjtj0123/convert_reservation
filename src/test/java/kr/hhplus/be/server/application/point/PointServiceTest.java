@@ -1,11 +1,12 @@
 package kr.hhplus.be.server.application.point;
 
-import kr.hhplus.be.server.common.exception.BusinessException;
-import kr.hhplus.be.server.domain.point.PointBalance;
-import kr.hhplus.be.server.domain.point.PointBalanceRepository;
-import kr.hhplus.be.server.interfaces.api.point.dto.PointBalanceResponse;
-import kr.hhplus.be.server.interfaces.api.point.dto.PointChargeRequest;
-import kr.hhplus.be.server.interfaces.api.point.dto.PointChargeResponse;
+import kr.hhplus.be.server.point.application.service.PointService;
+import kr.hhplus.be.server.shared.common.exception.BusinessException;
+import kr.hhplus.be.server.point.domain.model.PointBalance;
+import kr.hhplus.be.server.point.domain.repository.PointBalanceRepository;
+import kr.hhplus.be.server.point.interfaces.api.dto.PointBalanceResponse;
+import kr.hhplus.be.server.point.interfaces.api.dto.PointChargeRequest;
+import kr.hhplus.be.server.point.interfaces.api.dto.PointChargeResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
