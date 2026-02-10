@@ -26,6 +26,13 @@ interface SeatJpaRepository extends JpaRepository<Seat, Long> {
         @Param("seatNumber") Integer seatNumber
     );
     
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Seat s WHERE s.concertDate = :date AND s.seatNumber = :seatNumber")
+    Optional<Seat> findByConcertDateAndSeatNumberForUpdate(
+        @Param("date") String date, 
+        @Param("seatNumber") Integer seatNumber
+    );
+    
     Optional<Seat> findByConcertDateAndSeatNumber(String date, Integer seatNumber);
     
     @Modifying(clearAutomatically = true)

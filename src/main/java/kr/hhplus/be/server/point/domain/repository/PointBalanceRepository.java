@@ -25,4 +25,11 @@ public interface PointBalanceRepository {
      * - 금액 정합성 보장을 위해 사용
      */
     Optional<PointBalance> findByUserIdWithLock(String userId);
+    
+    /**
+     * 조건부 포인트 차감 (원자적 연산)
+     * - 잔액이 충분할 경우에만 차감
+     * @return 업데이트된 행 수 (1=성공, 0=실패)
+     */
+    int deductPointIfSufficient(String userId, Long amount);
 }

@@ -36,4 +36,10 @@ public class PointBalanceRepositoryImpl implements PointBalanceRepository {
     public Optional<PointBalance> findByUserIdWithLock(String userId) {
         return jpaRepository.findByUserIdWithLock(userId);
     }
+
+    @Override
+    @Transactional
+    public int deductPointIfSufficient(String userId, Long amount) {
+        return jpaRepository.deductPointIfSufficient(userId, amount);
+    }
 }
