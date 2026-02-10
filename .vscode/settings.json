@@ -1,0 +1,19 @@
+{
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.configuration.updateBuildConfiguration": "automatic",
+    
+    // Gradle 빌드만 사용하도록 설정
+    "java.import.gradle.enabled": true,
+    "java.import.gradle.wrapper.enabled": true,
+    
+    // Eclipse 자동 빌드 비활성화 (bin 폴더 생성 방지)
+    "java.autobuild.enabled": false,
+    
+    // 컴파일 출력 경로를 build 폴더로 설정
+    "java.project.outputPath": "build/classes/java/main",
+    
+    // 파일 탐색기에서 bin 폴더 숨기기
+    "files.exclude": {
+        "**/bin": true
+    }
+}

@@ -178,7 +178,23 @@ http://localhost:8080/swagger-ui.html
 | [OpenAPI](docs/openapi.yaml) | API 스펙 문서 |
 | [ER Diagram](docs/ER-diagram.md) | 엔티티 관계 다이어그램 |
 
-## 📦 빌드
+## � 문서
+
+### 핵심 문서
+- [**동시성 제어 구현 보고서**](docs/CONCURRENCY_CONTROL.md) ⭐
+  - 좌석 중복 예약 방지 전략
+  - 잔액 음수 방지 전략
+  - 타임아웃 해제 스케줄러
+  - 멀티스레드 테스트 결과
+
+### 설계 문서
+- [아키텍처 다이어그램](docs/ARCHITECTURE_DIAGRAM.md)
+- [시퀀스 다이어그램](docs/SEQUENCE_DIAGRAM.md)
+- [ER 다이어그램](docs/ER-diagram.md)
+- [대기열 아키텍처](docs/QUEUE_ARCHITECTURE.md)
+- [예약/결제 아키텍처](docs/RESERVATION_PAYMENT_ARCHITECTURE.md)
+
+## �📦 빌드
 
 ```bash
 # 빌드

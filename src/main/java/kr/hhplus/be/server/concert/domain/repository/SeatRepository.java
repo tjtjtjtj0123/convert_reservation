@@ -32,9 +32,14 @@ public interface SeatRepository {
     List<Seat> findByConcertDateOrderBySeatNumber(String concertDate);
     
     /**
-     * 날짜와 좌석번호로 좌석 조회 (락 포함)
+     * 날짜와 좌석번호로 좌석 조회 (낙관적 락 포함)
      */
     Optional<Seat> findByConcertDateAndSeatNumberWithLock(String date, Integer seatNumber);
+    
+    /**
+     * 날짜와 좌석번호로 좌석 조회 (비관적 락 FOR UPDATE)
+     */
+    Optional<Seat> findByConcertDateAndSeatNumberForUpdate(String date, Integer seatNumber);
     
     /**
      * 날짜와 좌석번호로 좌석 조회

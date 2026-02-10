@@ -50,6 +50,11 @@ public class SeatRepositoryImpl implements SeatRepository {
     }
 
     @Override
+    public Optional<Seat> findByConcertDateAndSeatNumberForUpdate(String date, Integer seatNumber) {
+        return seatJpaRepository.findByConcertDateAndSeatNumberForUpdate(date, seatNumber);
+    }
+
+    @Override
     public Optional<Seat> findByConcertDateAndSeatNumber(String date, Integer seatNumber) {
         return seatJpaRepository.findByConcertDateAndSeatNumber(date, seatNumber);
     }
