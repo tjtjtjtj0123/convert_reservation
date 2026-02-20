@@ -7,8 +7,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import kr.hhplus.be.server.concert.application.service.ConcertRankingService;
 import kr.hhplus.be.server.concert.application.service.ConcertService;
 import kr.hhplus.be.server.concert.interfaces.api.dto.AvailableDatesResponse;
+import kr.hhplus.be.server.concert.interfaces.api.dto.ConcertRankingResponse;
 import kr.hhplus.be.server.concert.interfaces.api.dto.SeatListResponse;
 import kr.hhplus.be.server.shared.common.exception.ProblemDetail;
 import kr.hhplus.be.server.queue.application.service.QueueService;
@@ -25,10 +27,12 @@ import org.springframework.web.bind.annotation.*;
 public class ConcertController {
 
     private final ConcertService concertService;
+    private final ConcertRankingService concertRankingService;
     private final QueueService queueService;
 
-    public ConcertController(ConcertService concertService, QueueService queueService) {
+    public ConcertController(ConcertService concertService, ConcertRankingService concertRankingService, QueueService queueService) {
         this.concertService = concertService;
+        this.concertRankingService = concertRankingService;
         this.queueService = queueService;
     }
 
@@ -121,6 +125,33 @@ public class ConcertController {
     ) {
         queueService.validateToken(token);
         SeatListResponse response = concertService.getSeats(date);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * 빠른 매진 랭킹 조회
+     * GET /concerts/ranking
+     */
+    @Operation(
+            summary = "빠른 매진 랭킹 조회",
+            description = "예약이 빠르게 진행되는 콘서트 상위 랭킹을 조회합니다."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "랭킹 조회 성공",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(implementation = ConcertRankingResponse.class)
+                    )
+            )
+    })
+    @GetMapping("/ranking")
+    public ResponseEntity<ConcertRankingResponse> getRanking(
+            @Parameter(description = "상위 N개 조회 (기본 10)", example = "10")
+            @RequestParam(defaultValue = "10") int topN
+    ) {
+        ConcertRankingResponse response = concertRankingService.getTopRanking(topN);
         return ResponseEntity.ok(response);
     }
 }

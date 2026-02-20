@@ -2,6 +2,7 @@ package kr.hhplus.be.server.reservation.application.service;
 
 import kr.hhplus.be.server.shared.common.exception.BusinessException;
 import kr.hhplus.be.server.shared.infrastructure.lock.DistributedLock;
+import kr.hhplus.be.server.concert.application.service.ConcertRankingService;
 import kr.hhplus.be.server.concert.domain.model.Seat;
 import kr.hhplus.be.server.concert.domain.repository.SeatRepository;
 import kr.hhplus.be.server.queue.application.service.QueueService;
@@ -30,14 +31,17 @@ public class ReservationService {
     private final SeatRepository seatRepository;
     private final ReservationRepository reservationRepository;
     private final QueueService queueService;
+    private final ConcertRankingService concertRankingService;
 
     public ReservationService(
             SeatRepository seatRepository,
             ReservationRepository reservationRepository,
-            QueueService queueService) {
+            QueueService queueService,
+            ConcertRankingService concertRankingService) {
         this.seatRepository = seatRepository;
         this.reservationRepository = reservationRepository;
         this.queueService = queueService;
+        this.concertRankingService = concertRankingService;
     }
 
     /**
@@ -80,7 +84,10 @@ public class ReservationService {
         );
         reservationRepository.save(reservation);
 
-        // 6. 응답 생성
+        // 6. 매진 랭킹 업데이트 (Redis Sorted Set)
+        concertRankingService.onSeatReserved(request.getDate());
+
+        // 7. 응답 생성
         return new SeatReserveResponse(
                 request.getSeatNumber(),
                 reservation.getReservedUntil(),
