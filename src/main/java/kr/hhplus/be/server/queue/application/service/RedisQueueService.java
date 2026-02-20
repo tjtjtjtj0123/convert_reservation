@@ -1,31 +1,37 @@
 package kr.hhplus.be.server.queue.application.service;
 
-import kr.hhplus.be.server.shared.common.exception.BusinessException;
 import kr.hhplus.be.server.queue.domain.repository.RedisQueueRepository;
 import kr.hhplus.be.server.queue.interfaces.api.dto.QueueTokenRequest;
 import kr.hhplus.be.server.queue.interfaces.api.dto.QueueTokenResponse;
+import kr.hhplus.be.server.shared.common.exception.BusinessException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.UUID;
 
 /**
- * 대기열 관리 서비스 (Application Layer)
- * 
- * Redis Sorted Set + Set 기반 대기열 관리:
+ * Redis 기반 대기열 서비스
+ *
+ * DB 기반 QueueService를 Redis로 전환한 구현체.
+ * Redis Sorted Set(대기열) + Set(활성 토큰) 구조:
+ *
  * - WAITING 대기열: Sorted Set (score = timestamp) → O(log N) 삽입/순위 조회
  * - ACTIVE 토큰: Set + 개별 키 TTL → O(1) 존재 확인
  * - 스케줄러: 대기 → 활성 전환 (30초마다)
  */
-@Service
-public class QueueService {
+@Service("redisQueueService")
+public class RedisQueueService {
+
+    private static final Logger log = LoggerFactory.getLogger(RedisQueueService.class);
 
     private static final int MAX_ACTIVE_TOKENS = 100;
     private static final long TOKEN_TTL_SECONDS = 600; // 10분
 
     private final RedisQueueRepository redisQueueRepository;
 
-    public QueueService(RedisQueueRepository redisQueueRepository) {
+    public RedisQueueService(RedisQueueRepository redisQueueRepository) {
         this.redisQueueRepository = redisQueueRepository;
     }
 
@@ -61,6 +67,7 @@ public class QueueService {
             // 즉시 활성화
             redisQueueRepository.saveUserTokenMapping(userId, token);
             redisQueueRepository.activateToken(token, TOKEN_TTL_SECONDS);
+            // 토큰→유저 매핑도 저장 (activateToken 내에서 TTL만 설정)
             return new QueueTokenResponse(token, 0, (int) TOKEN_TTL_SECONDS);
         }
 
@@ -74,10 +81,12 @@ public class QueueService {
      * 토큰 상태 조회
      */
     public QueueTokenResponse getTokenStatus(String tokenValue) {
+        // 활성 확인
         if (redisQueueRepository.isActive(tokenValue)) {
             return new QueueTokenResponse(tokenValue, 0, (int) TOKEN_TTL_SECONDS);
         }
 
+        // 대기 확인
         Long position = redisQueueRepository.getWaitingPosition(tokenValue);
         if (position != null) {
             int waitSeconds = (int) (position * 2 * 60);
@@ -92,6 +101,7 @@ public class QueueService {
      */
     public void validateToken(String tokenValue) {
         if (!redisQueueRepository.isActive(tokenValue)) {
+            // 대기 중인지 확인
             if (redisQueueRepository.isWaiting(tokenValue)) {
                 throw new BusinessException("활성화되지 않은 토큰입니다.", "inactive-token", 403);
             }
@@ -108,6 +118,7 @@ public class QueueService {
 
     /**
      * 대기 → 활성 전환 (스케줄러에서 호출)
+     * 활성 슬롯 여유분만큼 대기열 상위 토큰을 활성화
      */
     public int activateWaitingTokens() {
         long activeCount = redisQueueRepository.countActiveTokens();
@@ -123,6 +134,12 @@ public class QueueService {
             redisQueueRepository.activateToken(token, TOKEN_TTL_SECONDS);
             activated++;
         }
+
+        if (activated > 0) {
+            log.info("🎫 Redis 대기 토큰 {}건 활성화 완료 (활성: {}→{})",
+                    activated, activeCount, activeCount + activated);
+        }
+
         return activated;
     }
 }
