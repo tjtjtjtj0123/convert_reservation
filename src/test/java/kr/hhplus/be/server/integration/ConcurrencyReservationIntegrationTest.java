@@ -13,9 +13,7 @@ import kr.hhplus.be.server.reservation.interfaces.api.dto.SeatReserveRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,15 +26,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 동시성 통합 테스트
+ * 동시성 통합 테스트 (Redis 분산락 기반)
  * 다중 유저가 동시에 같은 좌석을 예약 요청할 때,
  * 오직 한 명만 성공하는지 검증한다.
  */
-@SpringBootTest
-@ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@DisplayName("[통합] 다중 유저 동시 좌석 예약 - 동시성 제어 검증")
-class ConcurrencyReservationIntegrationTest {
+@DisplayName("[통합] 다중 유저 동시 좌석 예약 - Redis 분산락 동시성 제어 검증")
+class ConcurrencyReservationIntegrationTest extends BaseRedisIntegrationTest {
 
     @Autowired
     private QueueService queueService;

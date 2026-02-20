@@ -100,20 +100,21 @@ class PointServiceTest {
     @DisplayName("포인트를 사용할 수 있다")
     void usePoint_Success() {
         // given
-        when(pointBalanceRepository.findByUserIdWithLock("user1")).thenReturn(Optional.of(existingBalance));
+        when(pointBalanceRepository.findById("user1")).thenReturn(Optional.of(existingBalance));
 
         // when
         pointService.usePoint("user1", 50000L);
 
         // then
         assertThat(existingBalance.getBalance()).isEqualTo(50000L);
+        verify(pointBalanceRepository, times(1)).save(any(PointBalance.class));
     }
 
     @Test
     @DisplayName("잔액 부족 시 포인트 사용 실패")
     void usePoint_InsufficientBalance_ThrowsException() {
         // given
-        when(pointBalanceRepository.findByUserIdWithLock("user1")).thenReturn(Optional.of(existingBalance));
+        when(pointBalanceRepository.findById("user1")).thenReturn(Optional.of(existingBalance));
 
         // when & then
         assertThatThrownBy(() -> pointService.usePoint("user1", 200000L))

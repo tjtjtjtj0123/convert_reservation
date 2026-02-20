@@ -61,7 +61,7 @@ class ReserveSeatUseCaseTest {
     void execute_Success() {
         // Given
         doNothing().when(queueService).validateToken(queueToken);
-        when(seatRepository.findByConcertDateAndSeatNumberWithLock(
+        when(seatRepository.findByConcertDateAndSeatNumber(
                 request.getDate(), 
                 request.getSeatNumber()))
                 .thenReturn(Optional.of(availableSeat));
@@ -85,7 +85,7 @@ class ReserveSeatUseCaseTest {
 
         // 검증
         verify(queueService, times(1)).validateToken(queueToken);
-        verify(seatRepository, times(1)).findByConcertDateAndSeatNumberWithLock(
+        verify(seatRepository, times(1)).findByConcertDateAndSeatNumber(
                 request.getDate(), 
                 request.getSeatNumber());
         verify(seatRepository, times(1)).save(any(Seat.class));
@@ -97,7 +97,7 @@ class ReserveSeatUseCaseTest {
     void execute_SeatNotFound() {
         // Given
         doNothing().when(queueService).validateToken(queueToken);
-        when(seatRepository.findByConcertDateAndSeatNumberWithLock(
+        when(seatRepository.findByConcertDateAndSeatNumber(
                 request.getDate(), 
                 request.getSeatNumber()))
                 .thenReturn(Optional.empty());
@@ -120,7 +120,7 @@ class ReserveSeatUseCaseTest {
         statusField.set(availableSeat, SeatStatus.TEMP_HELD);
 
         doNothing().when(queueService).validateToken(queueToken);
-        when(seatRepository.findByConcertDateAndSeatNumberWithLock(
+        when(seatRepository.findByConcertDateAndSeatNumber(
                 request.getDate(), 
                 request.getSeatNumber()))
                 .thenReturn(Optional.of(availableSeat));
@@ -145,7 +145,7 @@ class ReserveSeatUseCaseTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("유효하지 않은 토큰");
 
-        verify(seatRepository, never()).findByConcertDateAndSeatNumberWithLock(any(), any());
+        verify(seatRepository, never()).findByConcertDateAndSeatNumber(any(), any());
         verify(reservationRepository, never()).save(any());
     }
 
@@ -162,7 +162,7 @@ class ReserveSeatUseCaseTest {
         reservedUntilField.set(availableSeat, LocalDateTime.now().minusMinutes(10));
 
         doNothing().when(queueService).validateToken(queueToken);
-        when(seatRepository.findByConcertDateAndSeatNumberWithLock(
+        when(seatRepository.findByConcertDateAndSeatNumber(
                 request.getDate(), 
                 request.getSeatNumber()))
                 .thenReturn(Optional.of(availableSeat));

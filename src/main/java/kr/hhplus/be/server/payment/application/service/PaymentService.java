@@ -3,6 +3,7 @@ package kr.hhplus.be.server.payment.application.service;
 import kr.hhplus.be.server.point.application.service.PointService;
 import kr.hhplus.be.server.queue.application.service.QueueService;
 import kr.hhplus.be.server.shared.common.exception.BusinessException;
+import kr.hhplus.be.server.shared.infrastructure.lock.DistributedLock;
 import kr.hhplus.be.server.concert.domain.model.Seat;
 import kr.hhplus.be.server.concert.domain.repository.SeatRepository;
 import kr.hhplus.be.server.reservation.domain.model.Reservation;
@@ -18,9 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 결제 서비스 (Application Layer)
  * 도메인 기반 클린 아키텍처
+ * 
+ * 분산락 적용:
+ * - 키: "payment:{userId}:{date}:{seatNumber}" (예약 단위)
+ * - 동일한 예약에 대한 중복 결제 방지
  */
 @Service
-@Transactional(readOnly = true)
 public class PaymentService {
 
     private static final Long MOCK_PRICE = 150000L;
@@ -45,8 +49,13 @@ public class PaymentService {
     }
 
     /**
-     * 결제 처리
+     * 결제 처리 (분산락 적용)
+     * 
+     * 분산락 키: "payment:{userId}:{date}:{seatNumber}"
+     * - 동일 예약에 대한 중복 결제 요청 방지
+     * - 포인트 차감은 별도의 분산락(point:{userId})으로 보호됨
      */
+    @DistributedLock(key = "'payment:' + #request.userId + ':' + #request.date + ':' + #request.seatNumber", waitTime = 10, leaseTime = 10)
     @Transactional
     public PaymentResponse processPayment(PaymentRequest request, String queueToken) {
         // 1. 토큰 검증
@@ -71,7 +80,7 @@ public class PaymentService {
             throw new BusinessException("예약 시간이 만료되었습니다.", "reservation-expired", 400);
         }
 
-        // 4. 포인트 차감
+        // 4. 포인트 차감 (내부에서 분산락으로 동시성 제어)
         pointService.usePoint(request.getUserId(), MOCK_PRICE);
 
         // 5. 좌석 상태 변경
