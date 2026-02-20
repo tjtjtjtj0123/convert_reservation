@@ -1,8 +1,9 @@
 package kr.hhplus.be.server.application.reservation;
 
-import kr.hhplus.be.server.concert.application.service.ConcertRankingService;
 import kr.hhplus.be.server.queue.application.service.QueueService;
+import kr.hhplus.be.server.reservation.application.event.ReservationEventPublisher;
 import kr.hhplus.be.server.reservation.application.service.ReservationService;
+import kr.hhplus.be.server.reservation.domain.event.ReservationCompletedEvent;
 import kr.hhplus.be.server.shared.common.exception.BusinessException;
 import kr.hhplus.be.server.concert.domain.model.Seat;
 import kr.hhplus.be.server.concert.domain.repository.SeatRepository;
@@ -44,7 +45,7 @@ class ReserveSeatUseCaseTest {
     private QueueService queueService;
 
     @Mock
-    private ConcertRankingService concertRankingService;
+    private ReservationEventPublisher reservationEventPublisher;
 
     @InjectMocks
     private ReservationService reserveSeatUseCase;
@@ -94,6 +95,7 @@ class ReserveSeatUseCaseTest {
                 request.getSeatNumber());
         verify(seatRepository, times(1)).save(any(Seat.class));
         verify(reservationRepository, times(1)).save(any(Reservation.class));
+        verify(reservationEventPublisher, times(1)).publishReservationCompleted(any(ReservationCompletedEvent.class));
     }
 
     @Test
