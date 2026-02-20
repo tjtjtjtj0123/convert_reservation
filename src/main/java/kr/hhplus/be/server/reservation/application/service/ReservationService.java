@@ -2,10 +2,11 @@ package kr.hhplus.be.server.reservation.application.service;
 
 import kr.hhplus.be.server.shared.common.exception.BusinessException;
 import kr.hhplus.be.server.shared.infrastructure.lock.DistributedLock;
-import kr.hhplus.be.server.concert.application.service.ConcertRankingService;
 import kr.hhplus.be.server.concert.domain.model.Seat;
 import kr.hhplus.be.server.concert.domain.repository.SeatRepository;
 import kr.hhplus.be.server.queue.application.service.QueueService;
+import kr.hhplus.be.server.reservation.application.event.ReservationEventPublisher;
+import kr.hhplus.be.server.reservation.domain.event.ReservationCompletedEvent;
 import kr.hhplus.be.server.reservation.domain.model.Reservation;
 import kr.hhplus.be.server.reservation.domain.repository.ReservationRepository;
 import kr.hhplus.be.server.reservation.interfaces.api.dto.SeatReserveRequest;
@@ -31,17 +32,17 @@ public class ReservationService {
     private final SeatRepository seatRepository;
     private final ReservationRepository reservationRepository;
     private final QueueService queueService;
-    private final ConcertRankingService concertRankingService;
+    private final ReservationEventPublisher reservationEventPublisher;
 
     public ReservationService(
             SeatRepository seatRepository,
             ReservationRepository reservationRepository,
             QueueService queueService,
-            ConcertRankingService concertRankingService) {
+            ReservationEventPublisher reservationEventPublisher) {
         this.seatRepository = seatRepository;
         this.reservationRepository = reservationRepository;
         this.queueService = queueService;
-        this.concertRankingService = concertRankingService;
+        this.reservationEventPublisher = reservationEventPublisher;
     }
 
     /**
@@ -84,8 +85,13 @@ public class ReservationService {
         );
         reservationRepository.save(reservation);
 
-        // 6. 매진 랭킹 업데이트 (Redis Sorted Set)
-        concertRankingService.onSeatReserved(request.getDate());
+        // 6. 예약 완료 이벤트 발행 (트랜잭션 커밋 후 비동기로 랭킹 업데이트 + 데이터 플랫폼 전송)
+        reservationEventPublisher.publishReservationCompleted(new ReservationCompletedEvent(
+                reservation.getId(),
+                request.getUserId(),
+                request.getDate(),
+                request.getSeatNumber()
+        ));
 
         // 7. 응답 생성
         return new SeatReserveResponse(

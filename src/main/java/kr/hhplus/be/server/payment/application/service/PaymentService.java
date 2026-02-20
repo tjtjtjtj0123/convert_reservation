@@ -1,5 +1,7 @@
 package kr.hhplus.be.server.payment.application.service;
 
+import kr.hhplus.be.server.payment.application.event.PaymentEventPublisher;
+import kr.hhplus.be.server.payment.domain.event.PaymentSuccessEvent;
 import kr.hhplus.be.server.point.application.service.PointService;
 import kr.hhplus.be.server.queue.application.service.QueueService;
 import kr.hhplus.be.server.shared.common.exception.BusinessException;
@@ -34,18 +36,21 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final PointService pointService;
     private final QueueService queueService;
+    private final PaymentEventPublisher paymentEventPublisher;
 
     public PaymentService(
             ReservationRepository reservationRepository,
             SeatRepository seatRepository,
             PaymentRepository paymentRepository,
             PointService pointService,
-            QueueService queueService) {
+            QueueService queueService,
+            PaymentEventPublisher paymentEventPublisher) {
         this.reservationRepository = reservationRepository;
         this.seatRepository = seatRepository;
         this.paymentRepository = paymentRepository;
         this.pointService = pointService;
         this.queueService = queueService;
+        this.paymentEventPublisher = paymentEventPublisher;
     }
 
     /**
@@ -101,13 +106,23 @@ public class PaymentService {
         );
         paymentRepository.save(payment);
 
-        // 8. 토큰 만료
+        // 8. 결제 성공 이벤트 발행 (트랜잭션 커밋 후 비동기로 데이터 플랫폼 전송)
+        paymentEventPublisher.publishPaymentSuccess(new PaymentSuccessEvent(
+                payment.getId(),
+                reservation.getId(),
+                request.getUserId(),
+                request.getDate(),
+                request.getSeatNumber(),
+                MOCK_PRICE
+        ));
+
+        // 9. 토큰 만료
         queueService.expireToken(queueToken);
 
-        // 9. 잔액 조회 (응답용)
+        // 10. 잔액 조회 (응답용)
         Long remainingBalance = pointService.getBalance(request.getUserId()).getBalance().longValue();
 
-        // 10. 응답 생성
+        // 11. 응답 생성
         return new PaymentResponse(
                 payment.getId().toString(),
                 request.getUserId(),
