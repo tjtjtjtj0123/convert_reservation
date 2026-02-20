@@ -10,9 +10,7 @@ import kr.hhplus.be.server.shared.infrastructure.scheduler.ExpirationScheduler;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.lang.reflect.Field;
 import java.time.LocalDateTime;
@@ -24,11 +22,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * 만료 시간이 도래한 임시 예약은 스케줄러에 의해 해제되어,
  * 좌석이 다시 예약 가능(AVAILABLE) 상태로 돌아가는지 검증한다.
  */
-@SpringBootTest
-@ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @DisplayName("[통합] 만료 시간 도래 후 좌석 재예약 가능 여부 검증")
-class ExpirationReleaseIntegrationTest {
+class ExpirationReleaseIntegrationTest extends BaseRedisIntegrationTest {
 
     @Autowired
     private SeatRepository seatRepository;

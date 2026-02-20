@@ -27,8 +27,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Optional;
 
@@ -38,11 +38,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * E2E 흐름 통합 테스트
  * 토큰 발급 → 좌석 예약 → 결제 완료까지의 전체 흐름을 검증한다.
  */
-@SpringBootTest
-@ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 @DisplayName("[통합] 토큰 발급 → 좌석 예약 → 결제 완료 E2E 흐름")
-class ReservationE2EIntegrationTest {
+class ReservationE2EIntegrationTest extends BaseRedisIntegrationTest {
 
     @Autowired
     private QueueService queueService;

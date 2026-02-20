@@ -7,9 +7,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -19,15 +17,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 포인트 차감 동시성 통합 테스트
+ * 포인트 차감 동시성 통합 테스트 (Redis 분산락 기반)
  * 같은 유저가 동시에 여러 결제를 시도할 때,
  * 잔액이 음수가 되지 않고 정확히 처리되는지 검증한다.
  */
-@SpringBootTest
-@ActiveProfiles("test")
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
-@DisplayName("[통합] 포인트 동시 차감 - 음수 잔액 방지 검증")
-class ConcurrentPointDeductionTest {
+@DisplayName("[통합] 포인트 동시 차감 - Redis 분산락 음수 잔액 방지 검증")
+class ConcurrentPointDeductionTest extends BaseRedisIntegrationTest {
 
     @Autowired
     private PointService pointService;
