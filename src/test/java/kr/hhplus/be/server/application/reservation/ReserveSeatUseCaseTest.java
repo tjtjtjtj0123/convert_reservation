@@ -1,5 +1,6 @@
 package kr.hhplus.be.server.application.reservation;
 
+import kr.hhplus.be.server.concert.application.service.ConcertRankingService;
 import kr.hhplus.be.server.queue.application.service.QueueService;
 import kr.hhplus.be.server.reservation.application.service.ReservationService;
 import kr.hhplus.be.server.shared.common.exception.BusinessException;
@@ -41,6 +42,9 @@ class ReserveSeatUseCaseTest {
 
     @Mock
     private QueueService queueService;
+
+    @Mock
+    private ConcertRankingService concertRankingService;
 
     @InjectMocks
     private ReservationService reserveSeatUseCase;
