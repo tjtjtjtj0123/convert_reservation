@@ -1,6 +1,7 @@
 package kr.hhplus.be.server.point.application.service;
 
 import kr.hhplus.be.server.shared.common.exception.BusinessException;
+import kr.hhplus.be.server.shared.infrastructure.lock.DistributedLock;
 import kr.hhplus.be.server.point.domain.model.PointBalance;
 import kr.hhplus.be.server.point.domain.repository.PointBalanceRepository;
 import kr.hhplus.be.server.point.interfaces.api.dto.PointBalanceResponse;
@@ -12,9 +13,13 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 포인트 관리 서비스 (Application Layer)
  * 도메인 기반 클린 아키텍처
+ * 
+ * 분산락 적용:
+ * - 충전/사용 시 동일 사용자에 대한 동시 요청 제어
+ * - 키: "point:{userId}" (사용자 단위)
+ * - 충전과 사용이 같은 키를 사용하여 동시 실행 방지
  */
 @Service
-@Transactional(readOnly = true)
 public class PointService {
 
     private final PointBalanceRepository pointBalanceRepository;
@@ -24,8 +29,12 @@ public class PointService {
     }
 
     /**
-     * 포인트 충전
+     * 포인트 충전 (분산락 적용)
+     * 
+     * 분산락 키: "point:{userId}"
+     * - 동일 사용자의 충전/사용 동시 요청 방지
      */
+    @DistributedLock(key = "'point:' + #request.userId", waitTime = 5, leaseTime = 3)
     @Transactional
     public PointChargeResponse charge(PointChargeRequest request) {
         if (request.getAmount() <= 0) {
@@ -42,8 +51,9 @@ public class PointService {
     }
 
     /**
-     * 포인트 잔액 조회
+     * 포인트 잔액 조회 (락 불필요 - 읽기 전용)
      */
+    @Transactional(readOnly = true)
     public PointBalanceResponse getBalance(String userId) {
         PointBalance balance = pointBalanceRepository.findById(userId)
                 .orElseGet(() -> new PointBalance(userId));
@@ -52,11 +62,16 @@ public class PointService {
     }
 
     /**
-     * 포인트 사용 (내부 메서드)
+     * 포인트 사용 (분산락 적용)
+     * 
+     * 분산락 키: "point:{userId}"
+     * - 동일 사용자의 충전/사용 동시 요청 방지
+     * - DB 비관적 락 대신 Redis 분산락으로 DB 부하 최소화
      */
+    @DistributedLock(key = "'point:' + #userId", waitTime = 5, leaseTime = 3)
     @Transactional
     public void usePoint(String userId, Long amount) {
-        PointBalance balance = pointBalanceRepository.findByUserIdWithLock(userId)
+        PointBalance balance = pointBalanceRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("사용자를 찾을 수 없습니다.", "user-not-found", 404));
         
         if (!balance.hasEnoughBalance(amount)) {
@@ -64,5 +79,6 @@ public class PointService {
         }
         
         balance.use(amount);
+        pointBalanceRepository.save(balance);
     }
 }
