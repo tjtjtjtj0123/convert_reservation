@@ -1,6 +1,8 @@
 package kr.hhplus.be.server.application.payment;
 
+import kr.hhplus.be.server.payment.application.event.PaymentEventPublisher;
 import kr.hhplus.be.server.payment.application.service.PaymentService;
+import kr.hhplus.be.server.payment.domain.event.PaymentSuccessEvent;
 import kr.hhplus.be.server.point.application.service.PointService;
 import kr.hhplus.be.server.queue.application.service.QueueService;
 import kr.hhplus.be.server.shared.common.exception.BusinessException;
@@ -51,6 +53,9 @@ class ProcessPaymentUseCaseTest {
 
     @Mock
     private QueueService queueService;
+
+    @Mock
+    private PaymentEventPublisher paymentEventPublisher;
 
     @InjectMocks
     private PaymentService processPaymentUseCase;
@@ -125,6 +130,7 @@ class ProcessPaymentUseCaseTest {
         verify(pointService, times(1)).usePoint("user123", 150000L);
         verify(queueService, times(1)).expireToken(queueToken);
         verify(paymentRepository, times(1)).save(any(Payment.class));
+        verify(paymentEventPublisher, times(1)).publishPaymentSuccess(any(PaymentSuccessEvent.class));
     }
 
     @Test

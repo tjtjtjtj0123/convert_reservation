@@ -55,6 +55,9 @@ dependencies {
 
 	// Redis Testcontainers
 	testImplementation("com.redis:testcontainers-redis:2.2.2")
+
+	// Awaitility (비동기 테스트)
+	testImplementation("org.awaitility:awaitility:4.2.0")
 }
 
 tasks.withType<Test> {
