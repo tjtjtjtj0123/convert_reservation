@@ -1,10 +1,9 @@
 package kr.hhplus.be.server.integration;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import kr.hhplus.be.server.config.kafka.KafkaTopicConfig;
-import kr.hhplus.be.server.payment.application.event.PaymentEventPublisher;
 import kr.hhplus.be.server.payment.domain.event.PaymentSuccessEvent;
 import kr.hhplus.be.server.payment.infrastructure.external.DataPlatformSendService;
-import kr.hhplus.be.server.reservation.application.event.ReservationEventPublisher;
 import kr.hhplus.be.server.reservation.domain.event.ReservationCompletedEvent;
 import kr.hhplus.be.server.concert.application.service.ConcertRankingService;
 import kr.hhplus.be.server.shared.infrastructure.kafka.KafkaMessageProducer;
@@ -28,12 +27,13 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**
- * 이벤트 기반 트랜잭션 분리 통합 테스트
+ * Kafka 통합 테스트
  *
- * 변경: @Async 비동기 처리 → Kafka 메시지 발행 검증
+ * Embedded Kafka를 사용하여 Producer → Kafka → Consumer 전체 흐름을 검증합니다.
  *
- * ApplicationEventPublisher → PaymentEventListener → KafkaMessageProducer 흐름 검증
- * (실제 Kafka Consumer까지의 E2E는 KafkaIntegrationTest에서 검증)
+ * 검증 사항:
+ * 1. 결제 성공 이벤트 Kafka 발행 → Consumer에서 데이터 플랫폼 전송
+ * 2. 예약 완료 이벤트 Kafka 발행 → Consumer에서 매진 랭킹 업데이트 + 데이터 플랫폼 전송
  */
 @SpringBootTest
 @ActiveProfiles("test")
@@ -46,8 +46,8 @@ import static org.mockito.Mockito.*;
         }
 )
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-@DisplayName("[통합] 이벤트 기반 트랜잭션 분리 + Kafka 발행 검증")
-class EventDrivenIntegrationTest {
+@DisplayName("[통합] Kafka Producer-Consumer 전체 흐름 검증")
+class KafkaIntegrationTest {
 
     private static final GenericContainer<?> REDIS_CONTAINER =
             new GenericContainer<>(DockerImageName.parse("redis:7.2-alpine"))
@@ -64,10 +64,10 @@ class EventDrivenIntegrationTest {
     }
 
     @Autowired
-    private PaymentEventPublisher paymentEventPublisher;
+    private KafkaMessageProducer kafkaMessageProducer;
 
     @Autowired
-    private ReservationEventPublisher reservationEventPublisher;
+    private ObjectMapper objectMapper;
 
     @MockitoBean
     private DataPlatformSendService dataPlatformSendService;
@@ -76,17 +76,21 @@ class EventDrivenIntegrationTest {
     private ConcertRankingService concertRankingService;
 
     @Test
-    @DisplayName("결제 성공 이벤트 발행 시 Kafka를 통해 데이터 플랫폼으로 결제 데이터가 전송된다")
-    void paymentSuccessEvent_ShouldSendDataToDataPlatformViaKafka() {
+    @DisplayName("결제 성공 이벤트를 Kafka에 발행하면 Consumer에서 데이터 플랫폼에 전송한다")
+    void paymentSuccessEvent_ShouldBeConsumedAndSentToDataPlatform() {
         // Given
         PaymentSuccessEvent event = new PaymentSuccessEvent(
                 1L, 101L, "user123", "2025-01-15", 10, 150000L
         );
 
-        // When - 이벤트 발행 (트랜잭션 외부에서 직접 발행)
-        paymentEventPublisher.publishPaymentSuccess(event);
+        // When - Kafka에 메시지 발행
+        kafkaMessageProducer.send(
+                KafkaTopicConfig.TOPIC_PAYMENT_SUCCESS,
+                event.getUserId(),
+                event
+        );
 
-        // Then - Kafka Consumer가 처리할 때까지 대기
+        // Then - Consumer에서 데이터 플랫폼 전송이 호출될 때까지 대기
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
                 verify(dataPlatformSendService, times(1))
                         .sendPaymentData(1L, "user123", "2025-01-15", 10, 150000L)
@@ -94,17 +98,21 @@ class EventDrivenIntegrationTest {
     }
 
     @Test
-    @DisplayName("예약 완료 이벤트 발행 시 Kafka를 통해 랭킹 업데이트 및 데이터 플랫폼 전송이 수행된다")
-    void reservationCompletedEvent_ShouldUpdateRankingAndSendDataViaKafka() {
+    @DisplayName("예약 완료 이벤트를 Kafka에 발행하면 Consumer에서 랭킹 업데이트 및 데이터 플랫폼에 전송한다")
+    void reservationCompletedEvent_ShouldBeConsumedAndProcessed() {
         // Given
         ReservationCompletedEvent event = new ReservationCompletedEvent(
                 1L, "user123", "2025-01-15", 10
         );
 
-        // When
-        reservationEventPublisher.publishReservationCompleted(event);
+        // When - Kafka에 메시지 발행
+        kafkaMessageProducer.send(
+                KafkaTopicConfig.TOPIC_RESERVATION_COMPLETED,
+                event.getConcertDate(),
+                event
+        );
 
-        // Then - Kafka Consumer가 처리할 때까지 대기
+        // Then - Consumer에서 랭킹 업데이트 + 데이터 플랫폼 전송이 호출될 때까지 대기
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() -> {
             verify(concertRankingService, times(1)).onSeatReserved("2025-01-15");
             verify(dataPlatformSendService, times(1))
@@ -113,8 +121,8 @@ class EventDrivenIntegrationTest {
     }
 
     @Test
-    @DisplayName("데이터 플랫폼 전송 실패 시에도 이벤트 처리 흐름은 정상 동작한다")
-    void dataPlatformFailure_ShouldNotAffectEventProcessing() {
+    @DisplayName("데이터 플랫폼 전송 실패 시에도 Kafka 메시지 소비 자체는 정상 처리된다")
+    void kafkaConsumer_DataPlatformFailure_ShouldHandleGracefully() {
         // Given
         PaymentSuccessEvent event = new PaymentSuccessEvent(
                 2L, 102L, "user456", "2025-02-20", 5, 200000L
@@ -124,10 +132,14 @@ class EventDrivenIntegrationTest {
                 .when(dataPlatformSendService)
                 .sendPaymentData(anyLong(), anyString(), anyString(), anyInt(), anyLong());
 
-        // When - 예외가 발생해도 이벤트 처리가 중단되지 않아야 함
-        paymentEventPublisher.publishPaymentSuccess(event);
+        // When - Kafka에 메시지 발행
+        kafkaMessageProducer.send(
+                KafkaTopicConfig.TOPIC_PAYMENT_SUCCESS,
+                event.getUserId(),
+                event
+        );
 
-        // Then - Consumer에서 호출 시도가 되는 것을 검증
+        // Then - Consumer에서 호출 시도는 되지만 예외가 발생함 (재소비 대상)
         await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
                 verify(dataPlatformSendService, atLeastOnce())
                         .sendPaymentData(2L, "user456", "2025-02-20", 5, 200000L)
