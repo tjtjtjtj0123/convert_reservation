@@ -1,0 +1,33 @@
+# =====================================================
+# 부하 테스트용 프로파일
+# docker-compose.loadtest.yml에서 사용
+# =====================================================
+spring:
+  datasource:
+    name: HangHaePlusDataSource
+    type: com.zaxxer.hikari.HikariDataSource
+    hikari:
+      maximum-pool-size: ${SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE:10}
+      connection-timeout: 10000
+      max-lifetime: 60000
+      minimum-idle: 3
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/hhplus?characterEncoding=UTF-8&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:application}
+    password: ${SPRING_DATASOURCE_PASSWORD:application}
+  jpa:
+    generate-ddl: false
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate.timezone.default_storage: NORMALIZE_UTC
+      hibernate.jdbc.time_zone: UTC
+
+# Logging 최적화 (부하 테스트 시 로깅 부하 최소화)
+logging:
+  level:
+    root: WARN
+    kr.hhplus.be.server: INFO
+    org.hibernate.SQL: WARN
+    org.springframework.web: WARN
