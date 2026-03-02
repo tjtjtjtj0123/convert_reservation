@@ -1,0 +1,197 @@
+version: '3.8'
+
+# =====================================================
+# 부하 테스트용 Docker Compose 구성
+# CPU/Memory 제한을 조절하며 적정 배포 스펙을 테스트합니다.
+#
+# 사용법:
+#   docker-compose -f docker-compose.loadtest.yml up -d
+#
+# 스펙 변경:
+#   APP_CPUS, APP_MEMORY, HIKARI_POOL_SIZE 환경변수로 조절
+#   예) APP_CPUS=2.0 APP_MEMORY=2g docker-compose -f docker-compose.loadtest.yml up -d
+# =====================================================
+
+services:
+  # ── Application ──
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=local
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/hhplus?characterEncoding=UTF-8&serverTimezone=UTC
+      - SPRING_DATASOURCE_USERNAME=application
+      - SPRING_DATASOURCE_PASSWORD=application
+      - SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=${HIKARI_POOL_SIZE:-10}
+      - SPRING_DATASOURCE_HIKARI_CONNECTION_TIMEOUT=10000
+      - SPRING_DATASOURCE_HIKARI_MAX_LIFETIME=60000
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_KAFKA_BOOTSTRAP_SERVERS=broker1:29092,broker2:29093,broker3:29094
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_SHOW_SQL=false
+      - JAVA_OPTS=-Xms256m -Xmx${APP_HEAP:-512m}
+    deploy:
+      resources:
+        limits:
+          cpus: '${APP_CPUS:-1.0}'
+          memory: ${APP_MEMORY:-1g}
+        reservations:
+          cpus: '0.25'
+          memory: 256m
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - loadtest-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ── MySQL ──
+  mysql:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_USER=application
+      - MYSQL_PASSWORD=application
+      - MYSQL_DATABASE=hhplus
+    volumes:
+      - mysql-loadtest-data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2g
+    networks:
+      - loadtest-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Redis ──
+  redis:
+    image: redis:7.2-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512m
+    networks:
+      - loadtest-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Kafka (ZooKeeper) ──
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512m
+    networks:
+      - loadtest-net
+
+  # ── Kafka Broker 1 ──
+  broker1:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: broker1
+    ports:
+      - "9092:9092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker1:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+    networks:
+      - loadtest-net
+
+  # ── Kafka Broker 2 ──
+  broker2:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: broker2
+    ports:
+      - "9093:9093"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker2:29093,PLAINTEXT_HOST://localhost:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+    networks:
+      - loadtest-net
+
+  # ── Kafka Broker 3 ──
+  broker3:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: broker3
+    ports:
+      - "9094:9094"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker3:29094,PLAINTEXT_HOST://localhost:9094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1g
+    networks:
+      - loadtest-net
+
+volumes:
+  mysql-loadtest-data:
+
+networks:
+  loadtest-net:
+    driver: bridge

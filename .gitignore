@@ -53,3 +53,6 @@ data/
 *.zip
 *.tar.gz
 *.rar
+
+# k6 테스트 결과 (실행 결과 JSON/로그)
+k6/results/
