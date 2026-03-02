@@ -8,12 +8,16 @@ package kr.hhplus.be.server.payment.domain.event;
  */
 public class PaymentSuccessEvent {
 
-    private final Long paymentId;
-    private final Long reservationId;
-    private final String userId;
-    private final String concertDate;
-    private final Integer seatNumber;
-    private final Long amount;
+    private Long paymentId;
+    private Long reservationId;
+    private String userId;
+    private String concertDate;
+    private Integer seatNumber;
+    private Long amount;
+
+    // JSON 역직렬화를 위한 기본 생성자
+    public PaymentSuccessEvent() {
+    }
 
     public PaymentSuccessEvent(Long paymentId, Long reservationId, String userId,
                                 String concertDate, Integer seatNumber, Long amount) {

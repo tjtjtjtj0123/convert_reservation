@@ -8,10 +8,14 @@ package kr.hhplus.be.server.reservation.domain.event;
  */
 public class ReservationCompletedEvent {
 
-    private final Long reservationId;
-    private final String userId;
-    private final String concertDate;
-    private final Integer seatNumber;
+    private Long reservationId;
+    private String userId;
+    private String concertDate;
+    private Integer seatNumber;
+
+    // JSON 역직렬화를 위한 기본 생성자
+    public ReservationCompletedEvent() {
+    }
 
     public ReservationCompletedEvent(Long reservationId, String userId,
                                       String concertDate, Integer seatNumber) {
